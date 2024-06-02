@@ -218,22 +218,22 @@ If we compare this with the output of the same command for the original index, w
 
 In the original index, `_source` took up 5.5 MB. In the new index we have two sources: `_recovery_source` and `_source`, which together take 7.5 MB. This accounts for the increase in index size. We found the culprit, but what is `_recovery_source` and how do we get rid of it?
 
-## Understanding \_recovery_source
+## Understanding `_recovery_source`
 
 The `_recovery_source` is an undocumented temporary field automatically added when the original source is modified or disabled to facilitate [history retention](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules-history-retention.html). To efficiently recover shards in certain situations, such as shards going offline and for cross-cluster replication, Elasticsearch replays indexing operations for individual documents. To do this, Elasticsearch needs to have access to the original document which means it has to:
 
-1.  Prevent deleted records from fully disappearing until the shard is recovered or replication is finished.
-2.  Have access to the **original** source.
+1. Prevent deleted records from fully disappearing until the shard is recovered or replication is finished.
+2. Have access to the **original** source.
 
 Since we modified the source stored in the `_source` by removing a field from it, Elasticsearch no longer has the original document stored in the index, so it adds a special hidden `_recovery_source` containing the entire source of the original document on the top of the `_source` that contains everything except the `line_id` field. Thanks to compression, the overall size grows only slightly instead of doubling.
 
-This field is temporary and, by default, is designed to exist for only 12 hours to allow sufficient time for shard recovery and replication. After this period, the field is typically discarded during segment merge operations. However, there is a catch: the mere presence of `_recovery_source` fields does not trigger a merge. If no other conditions initiate a merge, these fields may remain in the index indefinitely.
+This field is temporary and, by default, is designed to exist for at most 12 hours to allow sufficient time for shard recovery and replication. When this field is not longer needed or after 12 hours, the field is typically discarded during segment merge operations. However, there is a catch: the mere presence of `_recovery_source` fields does not trigger a merge. If no other conditions initiate a merge, these fields may remain in the index indefinitely.
 
 In real-life indices that persist for many days, this is not a significant issue, as these indices typically undergo multiple merges, leaving only very small, fresh segments with the `_recovery_source` field. However, this poses a considerable challenge for our benchmark because it prevents us from accurately estimating the disk size savings.
 
 ## Removing `_recover_source` for benchmarking
 
-To estimate the disk size savings, we need to address the `_recovery_source` issue. One option is to wait until the next day when all leases have expired. However, a more efficient workaround for benchmarking purposes is to decrease the history retention interval. Let’s create another index, but this time set the `index.soft_deletes.retention_lease.period` setting to a very short duration:
+To estimate the disk size savings, we need to address the `_recovery_source` issue. One option is to wait until the retention lease expires, which can theoretically take up to 12 hours by default. However, if cross-cluster replication is not set for this index, you only need to wait for the retention lease sync period, set to 30 seconds in Elasticsearch v8.13.4. To ensure the lease expiration, let’s create another index and set the index.soft_deletes.retention_lease.period setting to a very short duration:
 
 ```plaintext
 PUT /shakespeare_v3
@@ -252,7 +252,7 @@ PUT /shakespeare_v3
     }
   },
   "settings": {
-    "index.soft_deletes.retention_lease.period": "100ms"
+    "index.soft_deletes.retention_lease.period": "10s"
   }
 }
 
@@ -269,7 +269,7 @@ POST _reindex?wait_for_completion=true
 POST shakespeare_v3/_flush
 ```
 
-Now, we wait about a minute. Even though we set the retention lease to 100ms, it can take longer. If we run the force merge too soon, the `_recovery_source` might still make it into the merged segment. After a minute, run:
+Now, we wait for 30 seconds for the history retention to sync. If we run the force merge too soon, the `_recovery_source` might still make it into the merged segment. After 30 seconds, run:
 
 ```plaintext
 POST shakespeare_v3/_forcemerge?max_num_segments=1
@@ -304,6 +304,6 @@ We should see the expected reduction in size to 9.8 MB:
 
 ## Conclusion
 
-Optimizing index size in Elasticsearch is not always straightforward. As we’ve seen, source can take a significant disk space and removing fields from it can lead to unexpected increases in disk usage due to features like \_recovery_source. Understanding these internal mechanisms is crucial for effective optimization.
+Optimizing index size in Elasticsearch is not always straightforward. As we’ve seen, source can take a significant disk space and removing fields from it can lead to unexpected increases in disk usage due to features like `_recovery_source`. Understanding these internal mechanisms is crucial for effective optimization.
 
 Feel free to experiment with your own datasets and explore further optimizations to suit your specific needs. Happy searching! For more information or assistance with Elasticsearch, don’t hesitate to [reach out to us](/contact) at Aka`ula Studio LLC.
