@@ -348,7 +348,7 @@ POST _reindex?wait_for_completion
 POST matrixfilms_v2/_flush
 ```
 
-Now we wait for 30 seconds. I have explained the reason for this wait in my [previous blog post](2024-05-27-optimizing-elasticsearch-disk-usage). Briefly, when during the indexing process the source is modified in any way, Elasticsearch temporarily creates a special field called `_recovery_source`. This field is kept until Elasticsearch ensures that it no longer needs it to perform per-record replication and after that, it is discarded during the merge operation. In our setup it takes 30 seconds. So after 30 seconds, we will run the following command which will merge all segments created during re-indexing while removing this temporary source:
+Now we wait for 30 seconds. I have explained the reason for this wait in my [previous blog post](../optimizing-elasticsearch-disk-usage). Briefly, when during the indexing process the source is modified in any way, Elasticsearch temporarily creates a special field called `_recovery_source`. This field is kept until Elasticsearch ensures that it no longer needs it to perform per-record replication and after that, it is discarded during the merge operation. In our setup it takes 30 seconds. So after 30 seconds, we will run the following command which will merge all segments created during re-indexing while removing this temporary source:
 
 ```plaintext
 POST matrixfilms_v2/_forcemerge?max_num_segments=1

@@ -36,7 +36,7 @@ PUT /shakespeare
 Since we cannot load data directly into Elasticsearch from Kibana, switch to the command line and run the following command:
 
 ```bash
-$ curl -u elastic -H 'Content-Type: application/x-ndjson' -XPOST "es_host:9200/shakespeare/_bulk?pretty" --data-binary @shakespeare_6.0.json
+curl -u elastic -H 'Content-Type: application/x-ndjson' -XPOST "es_host:9200/shakespeare/_bulk?pretty" --data-binary @shakespeare_6.0.json
 ```
 
 This will take a moment. Once the command returns, switch back to Kibana to verify that the data was successfully loaded by running:
