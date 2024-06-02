@@ -1,8 +1,17 @@
 {
     "cSpell.words": [
+        "extractall",
         "forcemerge",
+        "getenv",
         "imotov",
+        "Lucene",
+        "matrixfilms",
         "Motov",
-        "reindex"
+        "OPENAI",
+        "pathlib",
+        "reindex",
+        "textwrap",
+        "wikitextparser",
+        "xmltodict"
     ]
 }
